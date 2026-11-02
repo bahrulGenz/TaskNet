@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskNet - Task & Schedule Tracker</title>
+    
+    <!-- Konfigurasi PWA Standar -->
+    <link rel="manifest" href="data:application/manifest+json,{
+        &quot;name&quot;: &quot;TaskNet Task &amp; Schedule&quot;,
+        &quot;short_name&quot;: &quot;TaskNet&quot;,
+        &quot;start_url&quot;: &quot;./&quot;,
+        &quot;display&quot;: &quot;standalone&quot;,
+        &quot;background_color&quot;: &quot;%230b0f19&quot;,
+        &quot;theme_color&quot;: &quot;%230b0f19&quot;,
+        &quot;icons&quot;: [
+            {
+                &quot;src&quot;: &quot;TN.png&quot;,
+                &quot;sizes&quot;: &quot;512x512&quot;,
+                &quot;type&quot;: &quot;image/png&quot;
+            }
+        ]
+    }">
+    <meta name="theme-color" content="#0b0f19">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TaskNet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        macbg: '#0b0f19',
+                        glassdark: 'rgba(30, 41, 59, 0.45)',
+                        glassborder: 'rgba(255, 255, 255, 0.08)',
+                        accentglow: '#38bdf8'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .liquid-glass {
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .liquid-glass-card {
+            background: rgba(30, 41, 59, 0.35);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .liquid-btn {
+            background: rgba(51, 65, 85, 0.4);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s ease;
+        }
+        .liquid-btn:hover {
+            background: rgba(71, 85, 105, 0.6);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-macbg text-slate-100 min-h-screen font-sans pb-24 selection:bg-sky-500 selection:text-slate-950">
+
+<!-- Header / Navbar Liquid Glass dengan Logo Bersih Tanpa Kotak -->
+<header class="liquid-glass border-b border-white/5 p-3.5 sticky top-0 z-50">
+    <div class="max-w-md mx-auto flex justify-between items-center">
+        
+        <!-- Bagian Kiri: Logo murni tanpa kotak latar & Teks TaskNet -->
+        <div class="flex items-center gap-3">
+            <!-- Ubah angka w-12 h-12 di bawah ini jika ingin memperbesar/memperkecil logonya saja secara mandiri -->
+            <img src="TN.png" alt="Logo TaskNet" class="w-12 h-12 object-contain drop-shadow-md">
+            <h1 class="text-xl font-semibold tracking-wide text-slate-200">
+                TaskNet
+            </h1>
+        </div>
+
+        <!-- Bagian Kanan: Tombol-tombol -->
+        <div class="flex items-center gap-2">
+            <button id="backupBtn" title="Backup Data (Export JSON)" class="liquid-btn text-xs text-slate-300 px-2.5 py-1.5 rounded-xl cursor-pointer">
+                💾
+            </button>
+            <label title="Restore Data (Import JSON)" class="liquid-btn text-xs text-slate-300 px-2.5 py-1.5 rounded-xl cursor-pointer">
+                📂 <input type="file" id="restoreFile" accept=".json" class="hidden">
+            </label>
+            <button id="notifBtn" class="liquid-btn text-xs text-sky-400 px-3 py-1.5 rounded-full font-mono cursor-pointer">
+                🔔 Notif
+            </button>
+        </div>
+
+    </div>
+</header>
+
+    <!-- Main Container -->
+    <main class="max-w-md mx-auto p-4 space-y-5">
+
+        <!-- Navigasi Tab Liquid Glass -->
+        <div class="liquid-glass-card p-1 rounded-2xl flex">
+            <button id="tabTask" class="flex-1 py-2 text-xs font-medium rounded-xl bg-slate-200/10 text-slate-100 shadow-sm transition cursor-pointer border border-white/10">📌 Daftar Tugas</button>
+            <button id="tabSchedule" class="flex-1 py-2 text-xs font-medium rounded-xl text-slate-400 hover:text-slate-200 transition cursor-pointer">📅 Jadwal Kuliah</button>
+        </div>
+
+        <!-- ================= BAGIAN TUGAS ================= -->
+        <div id="sectionTask" class="space-y-5">
+            <!-- Input Form Liquid Glass -->
+            <section class="liquid-glass p-4 rounded-2xl shadow-xl">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">➕ Tambah Tugas Baru</h2>
+                <form id="taskForm" class="space-y-3">
+                    <div>
+                        <input type="text" id="taskTitle" placeholder="Nama Tugas / Mata Kuliah..." required
+                            class="w-full bg-slate-950/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-sky-400/50 text-slate-100 placeholder-slate-500 transition">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <select id="taskCategory" class="w-full bg-slate-950/40 border border-white/10 rounded-xl px-2 py-2 text-xs focus:outline-none focus:border-sky-400/50 text-slate-300 transition">
+                            <option value="Kuliah" class="bg-slate-900">Kuliah</option>
+                            <option value="Praktikum" class="bg-slate-900">Praktikum</option>
+                            <option value="Personal" class="bg-slate-900">Personal</option>
+                        </select>
+                        <select id="taskPriority" class="w-full bg-slate-950/40 border border-white/10 rounded-xl px-2 py-2 text-xs focus:outline-none focus:border-sky-400/50 text-slate-300 transition">
+                            <option value="Normal" class="bg-slate-900">Normal</option>
+                            <option value="Penting" class="bg-slate-900 text-amber-400">⚡ Penting</option>
+                        </select>
+                        <input type="date" id="taskDeadline" required
+                            class="w-full bg-slate-950/40 border border-white/10 rounded-xl px-2 py-2 text-xs focus:outline-none focus:border-sky-400/50 text-slate-300 transition">
+                    </div>
+                    <button type="submit" class="w-full liquid-btn bg-sky-500/20 text-sky-300 font-medium py-2 rounded-xl text-sm hover:bg-sky-500/30 transition cursor-pointer border border-sky-500/30">
+                        Simpan Tugas
+                    </button>
+                </form>
+            </section>
+
+            <!-- Search & Filter Liquid Glass -->
+            <div class="space-y-2">
+                <input type="text" id="searchTask" placeholder="🔍 Cari tugas..." 
+                    class="w-full liquid-glass-card rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-sky-400/50 text-slate-200 placeholder-slate-500 transition">
+                
+                <div class="flex gap-1.5 overflow-x-auto pb-1 text-xs">
+                    <button class="filter-btn liquid-btn bg-slate-200/10 text-slate-100 px-3 py-1 rounded-lg font-medium whitespace-nowrap cursor-pointer border-white/15" data-filter="Semua">Semua</button>
+                    <button class="filter-btn liquid-btn text-slate-400 px-3 py-1 rounded-lg font-medium whitespace-nowrap cursor-pointer" data-filter="Kuliah">Kuliah</button>
+                    <button class="filter-btn liquid-btn text-slate-400 px-3 py-1 rounded-lg font-medium whitespace-nowrap cursor-pointer" data-filter="Praktikum">Praktikum</button>
+                    <button class="filter-btn liquid-btn text-slate-400 px-3 py-1 rounded-lg font-medium whitespace-nowrap cursor-pointer" data-filter="Personal">Personal</button>
+                </div>
+            </div>
+
+            <!-- Task List Section (Aktif) -->
+            <section class="space-y-3">
+                <div class="flex justify-between items-center px-1">
+                    <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest">📌 Tugas Aktif</h2>
+                    <span id="taskCount" class="text-xs text-slate-500 font-mono">0 aktif</span>
+                </div>
+                
+                <div id="taskList" class="space-y-2.5">
+                    <!-- Dinamis via JS -->
+                </div>
+            </section>
+
+            <!-- Completed Task List Section (Tugas Selesai) -->
+            <section class="space-y-3 pt-2">
+                <div class="flex justify-between items-center px-1">
+                    <h2 class="text-xs font-semibold text-emerald-400 uppercase tracking-widest">✅ Tugas Selesai</h2>
+                    <span id="completedCount" class="text-xs text-slate-500 font-mono">0 selesai</span>
+                </div>
+                
+                <div id="completedList" class="space-y-2.5">
+                    <!-- Dinamis via JS -->
+                </div>
+            </section>
+        </div>
+
+        <!-- ================= BAGIAN JADWAL KULIAH ================= -->
+        <div id="sectionSchedule" class="space-y-4 hidden">
+            <section class="liquid-glass p-4 rounded-2xl shadow-xl">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">📅 Tambah Jadwal Rutin Mingguan</h2>
+                <form id="scheduleForm" class="space-y-3">
+                    <select id="schedDay" class="w-full bg-slate-950/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-sky-400/50 transition">
+                        <option value="Senin" class="bg-slate-900">Senin</option>
+                        <option value="Selasa" class="bg-slate-900">Selasa</option>
+                        <option value="Rabu" class="bg-slate-900">Rabu</option>
+                        <option value="Kamis" class="bg-slate-900">Kamis</option>
+                        <option value="Jumat" class="bg-slate-900">Jumat</option>
+                    </select>
+                    <input type="text" id="schedSubject" placeholder="Nama Mata Kuliah..." required
+                        class="w-full bg-slate-950/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400/50 transition">
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">Jam Mulai</label>
+                            <input type="time" id="schedTimeStart" required
+                                class="w-full bg-slate-950/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-sky-400/50 transition">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">Jam Selesai</label>
+                            <input type="time" id="schedTimeEnd" required
+                                class="w-full bg-slate-950/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-sky-400/50 transition">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full liquid-btn bg-sky-500/20 text-sky-300 font-medium py-2 rounded-xl text-sm hover:bg-sky-500/30 transition cursor-pointer border border-sky-500/30">
+                        Simpan Jadwal Rutin
+                    </button>
+                </form>
+            </section>
+
+            <section class="space-y-3">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest px-1">🗓️ Jadwal Mingguan (Permanen)</h2>
+                <div id="scheduleList" class="space-y-3">
+                    <!-- Dinamis via JS -->
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- Script Logika -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const tabTask = document.getElementById("tabTask");
+            const tabSchedule = document.getElementById("tabSchedule");
+            const sectionTask = document.getElementById("sectionTask");
+            const sectionSchedule = document.getElementById("sectionSchedule");
+
+            const taskForm = document.getElementById("taskForm");
+            const taskTitle = document.getElementById("taskTitle");
+            const taskCategory = document.getElementById("taskCategory");
+            const taskPriority = document.getElementById("taskPriority");
+            const taskDeadline = document.getElementById("taskDeadline");
+            const taskList = document.getElementById("taskList");
+            const completedList = document.getElementById("completedList");
+            const taskCount = document.getElementById("taskCount");
+            const completedCount = document.getElementById("completedCount");
+            const searchTask = document.getElementById("searchTask");
+            const filterBtns = document.querySelectorAll(".filter-btn");
+
+            const backupBtn = document.getElementById("backupBtn");
+            const restoreFile = document.getElementById("restoreFile");
+
+            const scheduleForm = document.getElementById("scheduleForm");
+            const schedDay = document.getElementById("schedDay");
+            const schedSubject = document.getElementById("schedSubject");
+            const schedTimeStart = document.getElementById("schedTimeStart");
+            const schedTimeEnd = document.getElementById("schedTimeEnd");
+            const scheduleList = document.getElementById("scheduleList");
+
+            const notifBtn = document.getElementById("notifBtn");
+
+            let tasks = JSON.parse(localStorage.getItem("tasknet_tasks")) || [];
+            let schedules = JSON.parse(localStorage.getItem("tasknet_schedules")) || [];
+            let currentFilter = "Semua";
+            let searchQuery = "";
+
+            if (notifBtn) {
+                notifBtn.addEventListener("click", () => {
+                    if (!("Notification" in window)) {
+                        alert("Browser tidak mendukung notifikasi.");
+                        return;
+                    }
+                    Notification.requestPermission().then(permission => {
+                        if (permission === "granted") {
+                            notifBtn.innerText = "🔔 Aktif";
+                            notifBtn.classList.add("bg-sky-500/20", "text-sky-300");
+                            new Notification("TaskNet", { body: "Notifikasi pengingat jadwal otomatis diaktifkan!" });
+                        } else {
+                            alert("Izin notifikasi ditolak.");
+                        }
+                    });
+                });
+            }
+
+            if (Notification.permission === "granted" && notifBtn) {
+                notifBtn.innerText = "🔔 Aktif";
+                notifBtn.classList.add("bg-sky-500/20", "text-sky-300");
+            }
+
+            function sendNotification(title, bodyText) {
+                if (Notification.permission === "granted") {
+                    new Notification(`TaskNet: ${title}`, { body: bodyText });
+                }
+            }
+
+            if (tabTask && tabSchedule) {
+                tabTask.addEventListener("click", () => {
+                    sectionTask.classList.remove("hidden");
+                    sectionSchedule.classList.add("hidden");
+                    tabTask.className = "flex-1 py-2 text-xs font-medium rounded-xl bg-slate-200/10 text-slate-100 shadow-sm transition cursor-pointer border border-white/10";
+                    tabSchedule.className = "flex-1 py-2 text-xs font-medium rounded-xl text-slate-400 hover:text-slate-200 transition cursor-pointer";
+                });
+
+                tabSchedule.addEventListener("click", () => {
+                    sectionSchedule.classList.remove("hidden");
+                    sectionTask.classList.add("hidden");
+                    tabSchedule.className = "flex-1 py-2 text-xs font-medium rounded-xl bg-slate-200/10 text-slate-100 shadow-sm transition cursor-pointer border border-white/10";
+                    tabTask.className = "flex-1 py-2 text-xs font-medium rounded-xl text-slate-400 hover:text-slate-200 transition cursor-pointer";
+                    renderSchedules();
+                });
+            }
+
+            function saveAndRenderTasks() {
+                localStorage.setItem("tasknet_tasks", JSON.stringify(tasks));
+                renderTasks();
+            }
+
+            function renderTasks() {
+                if (!taskList || !completedList) return;
+                taskList.innerHTML = "";
+                completedList.innerHTML = "";
+                
+                let filtered = tasks.filter(t => {
+                    const matchesCategory = currentFilter === "Semua" || t.category === currentFilter;
+                    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase());
+                    return matchesCategory && matchesSearch;
+                });
+
+                const activeTasks = filtered.filter(t => !t.completed);
+                const completedTasks = filtered.filter(t => t.completed);
+
+                if (taskCount) taskCount.innerText = `${activeTasks.length} aktif`;
+                if (completedCount) completedCount.innerText = `${completedTasks.length} selesai`;
+
+                if (activeTasks.length === 0) {
+                    taskList.innerHTML = `
+                        <div class="text-center py-5 text-slate-500 text-xs liquid-glass-card rounded-2xl border border-white/5">
+                            Tidak ada tugas aktif. Kerja bagus! 🎉
+                        </div>
+                    `;
+                } else {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    activeTasks.forEach((task) => {
+                        const index = tasks.indexOf(task);
+                        const isUrgent = task.deadline <= todayStr;
+                        const isPriority = task.priority === "Penting";
+                        const status = task.status || "Belum";
+
+                        const taskCard = document.createElement("div");
+                        taskCard.className = `p-3.5 rounded-2xl liquid-glass-card space-y-3 transition ${isUrgent ? 'border-red-500/30 bg-red-950/10' : ''}`;
+                        
+                        let statusBadge = "";
+                        if (status === "Progress") {
+                            statusBadge = `<div class="mt-1"><span class="text-[10px] bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded-md border border-sky-500/30 font-medium">⏳ In Progress</span></div>`;
+                        }
+
+                        taskCard.innerHTML = `
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-slate-200">${task.title}</p>
+                                    ${statusBadge}
+                                    <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                                        <span class="text-[10px] bg-slate-800/80 text-slate-400 px-2 py-0.5 rounded-md border border-white/5">${task.category}</span>
+                                        ${isPriority ? '<span class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-md border border-amber-500/30 font-medium">⚡ Penting</span>' : ''}
+                                        <span class="text-[10px] ${isUrgent ? 'text-red-400 font-bold' : 'text-slate-500'} font-mono">📅 ${task.deadline} ${isUrgent ? '⚠️' : ''}</span>
+                                    </div>
+                                </div>
+                                <button data-index="${index}" class="text-slate-500 hover:text-red-400 text-xs px-2 py-1 delete-task cursor-pointer transition">
+                                    🗑️
+                                </button>
+                            </div>
+                            <div class="flex gap-2 pt-2 border-t border-white/5">
+                                <button data-index="${index}" data-status="Progress" class="flex-1 py-1 text-[11px] rounded-lg ${status === 'Progress' ? 'bg-sky-500/30 text-sky-200 border-sky-400/40' : 'bg-slate-800/40 text-slate-400 border-white/5'} border font-medium transition cursor-pointer status-btn">
+                                    ⏳ Progress
+                                </button>
+                                <button data-index="${index}" data-status="Done" class="flex-1 py-1 text-[11px] rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium hover:bg-emerald-500/30 transition cursor-pointer status-btn">
+                                    ✔️ Done
+                                </button>
+                            </div>
+                        `;
+                        taskList.appendChild(taskCard);
+                    });
+                }
+
+                if (completedTasks.length === 0) {
+                    completedList.innerHTML = `
+                        <div class="text-center py-5 text-slate-600 text-xs liquid-glass-card rounded-2xl border border-white/5">
+                            Belum ada tugas yang diselesaikan.
+                        </div>
+                    `;
+                } else {
+                    completedTasks.forEach((task) => {
+                        const index = tasks.indexOf(task);
+                        const taskCard = document.createElement("div");
+                        taskCard.className = "p-3 rounded-2xl bg-slate-900/30 border border-white/5 flex items-center justify-between opacity-60 transition";
+                        
+                        taskCard.innerHTML = `
+                            <div class="flex items-start gap-3 flex-1">
+                                <button data-index="${index}" class="mt-0.5 text-xs text-slate-400 hover:text-sky-400 cursor-pointer undo-task" title="Batalkan Selesai">↩️</button>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium line-through text-slate-400">${task.title}</p>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="text-[10px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded-md">${task.category}</span>
+                                        <span class="text-[10px] text-emerald-400 font-mono">✅ Selesai</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button data-index="${index}" class="text-slate-500 hover:text-red-400 text-xs px-2 py-1 delete-task cursor-pointer transition">
+                                🗑️
+                            </button>
+                        `;
+                        completedList.appendChild(taskCard);
+                    });
+                }
+
+                document.querySelectorAll(".status-btn").forEach(btn => {
+                    btn.addEventListener("click", (e) => {
+                        const idx = parseInt(e.currentTarget.getAttribute("data-index"));
+                        const selectedStatus = e.currentTarget.getAttribute("data-status");
+                        if (selectedStatus === "Done") {
+                            tasks[idx].completed = true;
+                            tasks[idx].status = "Done";
+                        } else {
+                            tasks[idx].status = selectedStatus;
+                        }
+                        saveAndRenderTasks();
+                    });
+                });
+
+                document.querySelectorAll(".undo-task").forEach(btn => {
+                    btn.addEventListener("click", (e) => {
+                        const idx = parseInt(e.currentTarget.getAttribute("data-index"));
+                        tasks[idx].completed = false;
+                        tasks[idx].status = "Belum";
+                        saveAndRenderTasks();
+                    });
+                });
+
+                document.querySelectorAll(".delete-task").forEach(btn => {
+                    btn.addEventListener("click", (e) => {
+                        const idx = parseInt(e.currentTarget.getAttribute("data-index"));
+                        tasks.splice(idx, 1);
+                        saveAndRenderTasks();
+                    });
+                });
+            }
+
+            if (taskForm) {
+                taskForm.addEventListener("submit", (e) => {
+                    e.preventDefault();
+                    const title = taskTitle.value.trim();
+                    const category = taskCategory.value;
+                    const priority = taskPriority.value;
+                    const deadline = taskDeadline.value;
+
+                    if (!title || !deadline) return;
+
+                    const newTask = { title, category, priority, deadline, completed: false, status: "Belum" };
+                    tasks.push(newTask);
+                    saveAndRenderTasks();
+                    sendNotification("Tugas Baru!", `"${title}" berhasil ditambahkan.`);
+                    taskForm.reset();
+                });
+            }
+
+            if (searchTask) {
+                searchTask.addEventListener("input", (e) => {
+                    searchQuery = e.target.value;
+                    renderTasks();
+                });
+            }
+
+            filterBtns.forEach(btn => {
+                btn.addEventListener("click", (e) => {
+                    filterBtns.forEach(b => {
+                        b.className = "filter-btn liquid-btn text-slate-400 px-3 py-1 rounded-lg font-medium whitespace-nowrap cursor-pointer";
+                    });
+                    e.target.className = "filter-btn liquid-btn bg-slate-200/10 text-slate-100 px-3 py-1 rounded-lg font-medium whitespace-nowrap cursor-pointer border-white/15";
+                    currentFilter = e.target.getAttribute("data-filter");
+                    renderTasks();
+                });
+            });
+
+            function saveAndRenderSchedules() {
+                localStorage.setItem("tasknet_schedules", JSON.stringify(schedules));
+                renderSchedules();
+            }
+
+            function renderSchedules() {
+                if (!scheduleList) return;
+                scheduleList.innerHTML = "";
+                
+                if (schedules.length === 0) {
+                    scheduleList.innerHTML = `
+                        <div class="text-center py-8 text-slate-500 text-xs liquid-glass-card rounded-2xl border border-white/5">
+                            Belum ada jadwal kuliah rutin tercatat.
+                        </div>
+                    `;
+                    return;
+                }
+
+                const days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
+                days.forEach(day => {
+                    const daySchedules = schedules.filter(s => s.day === day);
+                    if (daySchedules.length > 0) {
+                        const dayContainer = document.createElement("div");
+                        dayContainer.className = "liquid-glass-card rounded-2xl p-4 space-y-2 border border-white/5";
+                        
+                        let itemsHtml = daySchedules.map((s) => {
+                            const globalIdx = schedules.indexOf(s);
+                            return `
+                                <div class="flex justify-between items-center text-sm border-b border-white/5 pb-2 last:border-none last:pb-0">
+                                    <div>
+                                        <p class="font-medium text-slate-200">${s.subject}</p>
+                                        <span class="text-xs text-sky-400 font-mono">⏰ ${s.timeStart} - ${s.timeEnd}</span>
+                                    </div>
+                                    <button data-index="${globalIdx}" class="text-slate-500 hover:text-red-400 text-xs delete-sched cursor-pointer transition">🗑️</button>
+                                </div>
+                            `;
+                        }).join("");
+
+                        dayContainer.innerHTML = `
+                            <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest border-b border-white/5 pb-1">${day}</h3>
+                            <div class="space-y-2 pt-1">${itemsHtml}</div>
+                        `;
+                        scheduleList.appendChild(dayContainer);
+                    }
+                });
+
+                document.querySelectorAll(".delete-sched").forEach(btn => {
+                    btn.addEventListener("click", (e) => {
+                        const idx = parseInt(e.currentTarget.getAttribute("data-index"));
+                        schedules.splice(idx, 1);
+                        saveAndRenderSchedules();
+                    });
+                });
+            }
+
+            if (scheduleForm) {
+                scheduleForm.addEventListener("submit", (e) => {
+                    e.preventDefault();
+                    const newSched = {
+                        day: schedDay.value,
+                        subject: schedSubject.value.trim(),
+                        timeStart: schedTimeStart.value,
+                        timeEnd: schedTimeEnd.value
+                    };
+                    if (!newSched.subject || !newSched.timeStart || !newSched.timeEnd) return;
+
+                    schedules.push(newSched);
+                    saveAndRenderSchedules();
+                    scheduleForm.reset();
+                });
+            }
+
+            let alertedSchedules = new Set();
+            function checkScheduleNotifications() {
+                if (Notification.permission !== "granted") return;
+
+                const now = new Date();
+                const daysMap = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+                const currentDayName = daysMap[now.getDay()];
+                
+                const currentHours = String(now.getHours()).padStart(2, '0');
+                const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+                const currentTimeMinutes = parseInt(currentHours) * 60 + parseInt(currentMinutes);
+
+                schedules.forEach((sched, index) => {
+                    if (sched.day === currentDayName) {
+                        const [startH, startM] = sched.timeStart.split(':').map(Number);
+                        const startTimeMinutes = startH * 60 + startM;
+                        const diffMinutes = startTimeMinutes - currentTimeMinutes;
+                        const alertKey = `${new Date().toDateString()}-${index}`;
+
+                        if (diffMinutes === 10 && !alertedSchedules.has(alertKey)) {
+                            sendNotification(
+                                "Pengingat Kuliah 🔔", 
+                                `Mata kuliah "${sched.subject}" akan dimulai dalam 10 menit (${sched.timeStart}). Bersiaplah!`
+                            );
+                            alertedSchedules.add(alertKey);
+                        }
+                    }
+                });
+            }
+
+            setInterval(checkScheduleNotifications, 30000);
+
+            backupBtn.addEventListener("click", () => {
+                const data = { tasks, schedules };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "tasknet-backup.json";
+                a.click();
+            });
+
+            restoreFile.addEventListener("change", (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const parsed = JSON.parse(event.target.result);
+                        if (parsed.tasks && parsed.schedules) {
+                            tasks = parsed.tasks;
+                            schedules = parsed.schedules;
+                            localStorage.setItem("tasknet_tasks", JSON.stringify(tasks));
+                            localStorage.setItem("tasknet_schedules", JSON.stringify(schedules));
+                            renderTasks();
+                            alert("Data berhasil dipulihkan!");
+                        } else {
+                            alert("Format file backup tidak valid.");
+                        }
+                    } catch (err) {
+                        alert("Gagal membaca file JSON.");
+                    }
+                };
+                reader.readAsText(file);
+            });
+
+            renderTasks();
+        });
+    </script>
+</body>
+</html>
